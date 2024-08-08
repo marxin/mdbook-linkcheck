@@ -138,35 +138,36 @@ pub fn version_check(version: &str) -> Result<(), Error> {
     }
 }
 
-/// A helper for reading the chapters of a [`Book`] into memory, filtering out
-/// files using the given `filter`.
+/// A helper for reading the chapters of a [`Book`] into memory.
 pub fn load_files_into_memory<F>(
     book: &Book,
     dest: &mut Files<String>,
     filter: F,
-) -> Vec<FileId>
+) -> (Vec<FileId>, Vec<FileId>)
 where
     F: Fn(&Path) -> bool,
 {
-    let mut ids = Vec::new();
+    let mut filtered_files: Vec<FileId> = Vec::new();
+    let mut all_files: Vec<FileId> = Vec::new();
 
     for item in book.iter() {
         match item {
             BookItem::Chapter(ref ch) => {
                 if let Some(ref path) = ch.path {
+                    let path_str = path.display().to_string();
+                    let content = ch.content.clone();
+                    let id = dest.add(path_str, content);
                     if filter(path) {
-                        let path_str = path.display().to_string();
-                        let content = ch.content.clone();
-                        let id = dest.add(path_str, content);
-                        ids.push(id);
+                        filtered_files.push(id);
                     }
+                    all_files.push(id);
                 }
             },
             BookItem::Separator | BookItem::PartTitle(_) => {},
         }
     }
 
-    ids
+    (filtered_files, all_files)
 }
 
 fn report_errors(
@@ -195,10 +196,10 @@ where
 {
     log::info!("Scanning book for links");
     let mut files: Files<String> = Files::new();
-    let file_ids =
+    let (filtered_files_ids, all_file_ids) =
         crate::load_files_into_memory(&ctx.book, &mut files, file_filter);
     let (links, incomplete_links) =
-        crate::extract_links(cfg, file_ids.clone(), &files);
+        crate::extract_links(cfg, filtered_files_ids.clone(), &files);
     log::info!(
         "Found {} links ({} incomplete links)",
         links.len(),
@@ -212,7 +213,8 @@ where
         &src,
         cache,
         &files,
-        &file_ids,
+        &filtered_files_ids,
+        &all_file_ids,
         incomplete_links,
     )?;
 

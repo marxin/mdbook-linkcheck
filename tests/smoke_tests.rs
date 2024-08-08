@@ -326,14 +326,15 @@ impl Renderer for TestRun {
 
         let noop_filter = |_: &Path| true;
 
-        let file_ids = mdbook_linkcheck::load_files_into_memory(
-            &ctx.book,
-            &mut files,
-            noop_filter,
-        );
+        let (filtered_files_ids, all_files_ids) =
+            mdbook_linkcheck::load_files_into_memory(
+                &ctx.book,
+                &mut files,
+                noop_filter,
+            );
         let (links, incomplete) = mdbook_linkcheck::extract_links(
             &self.config,
-            file_ids.clone(),
+            filtered_files_ids.clone(),
             &files,
         );
 
@@ -344,11 +345,12 @@ impl Renderer for TestRun {
             &src,
             &mut cache,
             &files,
-            &file_ids,
+            &filtered_files_ids,
+            &all_files_ids,
             incomplete,
         )?;
 
-        (self.after_validation)(&files, &outcome, &file_ids);
+        (self.after_validation)(&files, &outcome, &filtered_files_ids);
 
         self.validation_outcome.set(Some(outcome));
         Ok(())
